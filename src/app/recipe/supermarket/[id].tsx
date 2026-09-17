@@ -1,8 +1,15 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 
-import { supermarkets } from "@/data/supermarkets";
+import { getSupermarkets, type Supermarket } from "@/services/supermarkets";
 
 export default function SupermarketScreen() {
   const { id, missing } = useLocalSearchParams<{
@@ -10,11 +17,38 @@ export default function SupermarketScreen() {
     missing: string;
   }>();
 
+  const [supermarkets, setSupermarkets] = useState<Supermarket[]>([]);
+
   const [selectedSupermarket, setSelectedSupermarket] = useState<string | null>(
     null,
   );
 
-  const missingIngredientIds = missing ? missing.split(",") : [];
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const missingIngredientIds = missing
+    ? missing.split(",").filter(Boolean)
+    : [];
+
+  useEffect(() => {
+    async function loadSupermarkets() {
+      try {
+        const databaseSupermarkets = await getSupermarkets();
+
+        setSupermarkets(databaseSupermarkets);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Errore sconosciuto";
+
+        setErrorMessage(message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadSupermarkets();
+  }, []);
 
   function continueToProducts() {
     if (!selectedSupermarket) {
@@ -31,14 +65,38 @@ export default function SupermarketScreen() {
     });
   }
 
+  if (isLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#EA5B36" />
+
+        <Text style={styles.statusText}>Ricerca dei supermercati...</Text>
+      </View>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>{errorMessage}</Text>
+
+        <Pressable onPress={() => router.back()}>
+          <Text style={styles.backText}>Torna indietro</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.page} contentContainerStyle={styles.container}>
       <Text style={styles.logo}>Savr</Text>
 
       <Text style={styles.title}>Scegli il supermercato</Text>
 
       <Text style={styles.subtitle}>
-        Hai selezionato {missingIngredientIds.length} ingredienti da comprare.
+        Hai selezionato {missingIngredientIds.length}{" "}
+        {missingIngredientIds.length === 1 ? "ingrediente" : "ingredienti"} da
+        comprare.
       </Text>
 
       <View style={styles.list}>
@@ -55,16 +113,24 @@ export default function SupermarketScreen() {
               onPress={() => setSelectedSupermarket(supermarket.id)}
             >
               <View style={styles.supermarketInformation}>
+                <Text style={styles.chain}>{supermarket.chain}</Text>
+
                 <Text style={styles.supermarketName}>{supermarket.name}</Text>
 
                 <Text style={styles.address}>{supermarket.address}</Text>
               </View>
 
-              <Text style={styles.distance}>{supermarket.distance}</Text>
+              <View style={[styles.radio, isSelected && styles.selectedRadio]}>
+                {isSelected && <View style={styles.radioCenter} />}
+              </View>
             </Pressable>
           );
         })}
       </View>
+
+      {supermarkets.length === 0 && (
+        <Text style={styles.statusText}>Nessun supermercato disponibile.</Text>
+      )}
 
       <Pressable
         disabled={!selectedSupermarket}
@@ -80,16 +146,29 @@ export default function SupermarketScreen() {
       <Pressable onPress={() => router.back()}>
         <Text style={styles.backText}>Torna indietro</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  page: {
     flex: 1,
     backgroundColor: "#FFF8EE",
+  },
+
+  container: {
     padding: 24,
     paddingTop: 60,
+    paddingBottom: 40,
+  },
+
+  center: {
+    flex: 1,
+    backgroundColor: "#FFF8EE",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
+    padding: 24,
   },
 
   logo: {
@@ -137,10 +216,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  chain: {
+    color: "#EA5B36",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
   supermarketName: {
     color: "#171717",
     fontSize: 18,
     fontWeight: "700",
+    marginTop: 3,
   },
 
   address: {
@@ -149,10 +235,25 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
-  distance: {
-    color: "#EA5B36",
-    fontSize: 15,
-    fontWeight: "600",
+  radio: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: "#BBBBBB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  selectedRadio: {
+    borderColor: "#EA5B36",
+  },
+
+  radioCenter: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#EA5B36",
   },
 
   continueButton: {
@@ -177,5 +278,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
     marginTop: 20,
+  },
+
+  statusText: {
+    color: "#666666",
+    fontSize: 15,
+    textAlign: "center",
+  },
+
+  errorText: {
+    color: "#B00020",
+    fontSize: 17,
+    textAlign: "center",
   },
 });

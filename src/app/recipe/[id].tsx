@@ -1,12 +1,53 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 
-import { recipes } from "@/data/recipes";
+import { getRecipeById, type RecipeDetails } from "@/services/recipes";
 
 export default function IngredientCheckScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const recipe = recipes[id];
+  const [recipe, setRecipe] = useState<RecipeDetails | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadRecipe() {
+      if (!id) {
+        setErrorMessage("Identificativo della ricetta mancante.");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const databaseRecipe = await getRecipeById(id);
+
+        if (!databaseRecipe) {
+          setErrorMessage("Ricetta non trovata.");
+          return;
+        }
+
+        setRecipe(databaseRecipe);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Errore sconosciuto";
+
+        setErrorMessage(message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadRecipe();
+  }, [id]);
 
   function handleYes() {
     router.push({
@@ -22,11 +63,34 @@ export default function IngredientCheckScreen() {
     });
   }
 
+  if (isLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#EA5B36" />
+        <Text style={styles.statusText}>Caricamento della ricetta...</Text>
+      </View>
+    );
+  }
+
+  if (errorMessage || !recipe) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>
+          {errorMessage ?? "Ricetta non disponibile."}
+        </Text>
+
+        <Pressable onPress={() => router.replace("/")}>
+          <Text style={styles.backButton}>Torna alla Home</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>Savr</Text>
 
-      <Text style={styles.recipe}>{recipe?.name ?? "Ricetta"}</Text>
+      <Text style={styles.recipe}>{recipe.name}</Text>
 
       <Text style={styles.title}>Hai già tutti gli ingredienti?</Text>
 
@@ -66,6 +130,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFF8EE",
     justifyContent: "center",
+    padding: 24,
+  },
+
+  center: {
+    flex: 1,
+    backgroundColor: "#FFF8EE",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
     padding: 24,
   },
 
@@ -131,6 +204,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
     marginTop: 24,
+  },
+
+  statusText: {
+    color: "#666666",
+    fontSize: 15,
+  },
+
+  errorText: {
+    color: "#B00020",
+    fontSize: 17,
+    textAlign: "center",
   },
 
   pressed: {

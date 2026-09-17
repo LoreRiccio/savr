@@ -1,35 +1,74 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 
-import { recipes } from "@/data/recipes";
+import { getRecipeById, type RecipeDetails } from "@/services/recipes";
 
 export default function MissingIngredientsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const recipe = recipes[id];
+  const [recipe, setRecipe] = useState<RecipeDetails | null>(null);
 
   const [missingIds, setMissingIds] = useState<string[]>([]);
 
-  if (!recipe) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Ricetta non trovata</Text>
-      </View>
-    );
-  }
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadRecipe() {
+      if (!id) {
+        setErrorMessage("Identificativo della ricetta mancante.");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const databaseRecipe = await getRecipeById(id);
+
+        if (!databaseRecipe) {
+          setErrorMessage("Ricetta non trovata.");
+          return;
+        }
+
+        setRecipe(databaseRecipe);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Errore sconosciuto";
+
+        setErrorMessage(message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadRecipe();
+  }, [id]);
 
   function toggleIngredient(ingredientId: string) {
-    const isAlreadySelected = missingIds.includes(ingredientId);
+    setMissingIds((currentIds) => {
+      const isAlreadySelected = currentIds.includes(ingredientId);
 
-    if (isAlreadySelected) {
-      setMissingIds(missingIds.filter((itemId) => itemId !== ingredientId));
-    } else {
-      setMissingIds([...missingIds, ingredientId]);
-    }
+      if (isAlreadySelected) {
+        return currentIds.filter((currentId) => currentId !== ingredientId);
+      }
+
+      return [...currentIds, ingredientId];
+    });
   }
 
   function continueToSupermarket() {
+    if (missingIds.length === 0) {
+      return;
+    }
+
     router.push({
       pathname: "/recipe/supermarket/[id]",
       params: {
@@ -37,6 +76,30 @@ export default function MissingIngredientsScreen() {
         missing: missingIds.join(","),
       },
     });
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#EA5B36" />
+
+        <Text style={styles.statusText}>Caricamento degli ingredienti...</Text>
+      </View>
+    );
+  }
+
+  if (errorMessage || !recipe) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>
+          {errorMessage ?? "Ricetta non disponibile."}
+        </Text>
+
+        <Pressable onPress={() => router.replace("/")}>
+          <Text style={styles.backText}>Torna alla Home</Text>
+        </Pressable>
+      </View>
+    );
   }
 
   return (
@@ -64,7 +127,9 @@ export default function MissingIngredientsScreen() {
               <View style={styles.ingredientInformation}>
                 <Text style={styles.ingredientName}>{ingredient.name}</Text>
 
-                <Text style={styles.quantity}>{ingredient.quantity}</Text>
+                <Text style={styles.quantity}>
+                  {ingredient.displayQuantity}
+                </Text>
               </View>
 
               <View
@@ -105,6 +170,15 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 60,
     paddingBottom: 40,
+  },
+
+  center: {
+    flex: 1,
+    backgroundColor: "#FFF8EE",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
+    padding: 24,
   },
 
   logo: {
@@ -213,5 +287,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
     marginTop: 20,
+  },
+
+  statusText: {
+    color: "#666666",
+    fontSize: 15,
+  },
+
+  errorText: {
+    color: "#B00020",
+    fontSize: 17,
+    textAlign: "center",
   },
 });
