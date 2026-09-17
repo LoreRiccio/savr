@@ -1,0 +1,143 @@
+import { router, useLocalSearchParams } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+const recipeNames: Record<string, string> = {
+  "1": "Pasta al pomodoro",
+  "2": "Insalata di pollo",
+  "3": "Riso con verdure",
+};
+
+export default function IngredientCheckScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+
+  const recipeName = recipeNames[id] ?? "Ricetta";
+
+  function handleYes() {
+    router.push({
+      pathname: "/recipe/cook/[id]",
+      params: { id },
+    });
+  }
+
+  function handleNo() {
+    router.push({
+      pathname: "/recipe/missing/[id]",
+      params: { id },
+    });
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.logo}>Savr</Text>
+
+      <Text style={styles.recipe}>{recipeName}</Text>
+
+      <Text style={styles.title}>Hai già tutti gli ingredienti?</Text>
+
+      <Text style={styles.subtitle}>
+        Se hai già tutto, possiamo iniziare subito a cucinare.
+      </Text>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.primaryButton,
+          pressed && styles.pressed,
+        ]}
+        onPress={handleYes}
+      >
+        <Text style={styles.primaryButtonText}>Sì, ho tutto</Text>
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.secondaryButton,
+          pressed && styles.pressed,
+        ]}
+        onPress={handleNo}
+      >
+        <Text style={styles.secondaryButtonText}>No, mi manca qualcosa</Text>
+      </Pressable>
+
+      <Pressable onPress={() => router.back()}>
+        <Text style={styles.backButton}>Torna ai piatti</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#FFF8EE",
+    justifyContent: "center",
+    padding: 24,
+  },
+
+  logo: {
+    color: "#EA5B36",
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 32,
+  },
+
+  recipe: {
+    color: "#EA5B36",
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+
+  title: {
+    color: "#171717",
+    fontSize: 32,
+    fontWeight: "700",
+  },
+
+  subtitle: {
+    color: "#666666",
+    fontSize: 16,
+    lineHeight: 24,
+    marginTop: 12,
+    marginBottom: 32,
+  },
+
+  primaryButton: {
+    backgroundColor: "#EA5B36",
+    borderRadius: 14,
+    padding: 17,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "600",
+  },
+
+  secondaryButton: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#EA5B36",
+    borderWidth: 2,
+    borderRadius: 14,
+    padding: 15,
+    alignItems: "center",
+  },
+
+  secondaryButtonText: {
+    color: "#EA5B36",
+    fontSize: 17,
+    fontWeight: "600",
+  },
+
+  backButton: {
+    color: "#666666",
+    fontSize: 15,
+    textAlign: "center",
+    marginTop: 24,
+  },
+
+  pressed: {
+    opacity: 0.7,
+  },
+});

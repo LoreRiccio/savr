@@ -1,98 +1,133 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+const recipes = [
+  {
+    id: 1,
+    emoji: "🍝",
+    name: "Pasta al pomodoro",
+    time: "20 minuti",
+  },
+  {
+    id: 2,
+    emoji: "🥗",
+    name: "Insalata di pollo",
+    time: "25 minuti",
+  },
+  {
+    id: 3,
+    emoji: "🍚",
+    name: "Riso con verdure",
+    time: "30 minuti",
+  },
+];
 
 export default function HomeScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <ScrollView style={styles.page} contentContainerStyle={styles.container}>
+      <Text style={styles.logo}>Savr</Text>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      <Text style={styles.title}>Cosa vuoi mangiare oggi?</Text>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+      <Text style={styles.subtitle}>
+        Scegli un piatto e ti accompagnerò dalla spesa alla cucina.
+      </Text>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      <View style={styles.recipeList}>
+        {recipes.map((recipe) => (
+          <Pressable
+            key={recipe.id}
+            style={({ pressed }) => [
+              styles.card,
+              pressed && styles.cardPressed,
+            ]}
+            onPress={() =>
+              router.push({
+                pathname: "/recipe/[id]",
+                params: { id: String(recipe.id) },
+              })
+            }
+          >
+            <Text style={styles.emoji}>{recipe.emoji}</Text>
+
+            <View>
+              <Text style={styles.recipeName}>{recipe.name}</Text>
+              <Text style={styles.recipeTime}>{recipe.time}</Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  page: {
+    flex: 1,
+    backgroundColor: "#FFF8EE",
+  },
+
   container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    padding: 24,
+    paddingTop: 60,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+
+  logo: {
+    color: "#EA5B36",
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 24,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
+
   title: {
-    textAlign: 'center',
+    color: "#171717",
+    fontSize: 32,
+    fontWeight: "700",
   },
-  code: {
-    textTransform: 'uppercase',
+
+  subtitle: {
+    color: "#666666",
+    fontSize: 16,
+    lineHeight: 24,
+    marginTop: 12,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+
+  recipeList: {
+    gap: 16,
+    marginTop: 32,
+  },
+
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    shadowColor: "#000000",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+
+  cardPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.98 }],
+  },
+
+  emoji: {
+    fontSize: 42,
+  },
+
+  recipeName: {
+    color: "#171717",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+
+  recipeTime: {
+    color: "#777777",
+    fontSize: 14,
+    marginTop: 5,
   },
 });
