@@ -2,44 +2,13 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-const recipes = {
-  "1": {
-    name: "Pasta al pomodoro",
-    steps: [
-      "Metti a bollire una pentola d’acqua.",
-      "Aggiungi il sale quando l’acqua bolle.",
-      "Cuoci la pasta seguendo il tempo indicato.",
-      "Scalda il sugo di pomodoro in una padella.",
-      "Scola la pasta e uniscila al sugo.",
-    ],
-  },
-  "2": {
-    name: "Insalata di pollo",
-    steps: [
-      "Scalda una padella.",
-      "Cuoci il pollo fino a completa doratura.",
-      "Lava e taglia l’insalata.",
-      "Taglia il pollo a strisce.",
-      "Unisci gli ingredienti e condisci.",
-    ],
-  },
-  "3": {
-    name: "Riso con verdure",
-    steps: [
-      "Lava e taglia le verdure.",
-      "Cuoci le verdure in padella.",
-      "Porta a bollore una pentola d’acqua.",
-      "Cuoci e scola il riso.",
-      "Unisci il riso alle verdure.",
-    ],
-  },
-} as const;
+import { recipes } from "@/data/recipes";
 
 export default function CookingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [currentStep, setCurrentStep] = useState(0);
 
-  const recipe = recipes[id as keyof typeof recipes];
+  const recipe = recipes[id];
 
   if (!recipe) {
     return (

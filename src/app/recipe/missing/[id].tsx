@@ -2,42 +2,12 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-const recipes = {
-  "1": {
-    name: "Pasta al pomodoro",
-    ingredients: [
-      { id: "pasta", name: "Pasta", quantity: "180 g" },
-      { id: "tomato", name: "Passata di pomodoro", quantity: "250 g" },
-      { id: "oil", name: "Olio extravergine", quantity: "2 cucchiai" },
-      { id: "salt", name: "Sale", quantity: "Quanto basta" },
-    ],
-  },
-
-  "2": {
-    name: "Insalata di pollo",
-    ingredients: [
-      { id: "chicken", name: "Petto di pollo", quantity: "300 g" },
-      { id: "salad", name: "Insalata", quantity: "150 g" },
-      { id: "tomatoes", name: "Pomodorini", quantity: "150 g" },
-      { id: "oil", name: "Olio extravergine", quantity: "2 cucchiai" },
-    ],
-  },
-
-  "3": {
-    name: "Riso con verdure",
-    ingredients: [
-      { id: "rice", name: "Riso", quantity: "180 g" },
-      { id: "zucchini", name: "Zucchine", quantity: "2" },
-      { id: "pepper", name: "Peperone", quantity: "1" },
-      { id: "oil", name: "Olio extravergine", quantity: "2 cucchiai" },
-    ],
-  },
-} as const;
+import { recipes } from "@/data/recipes";
 
 export default function MissingIngredientsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const recipe = recipes[id as keyof typeof recipes];
+  const recipe = recipes[id];
 
   const [missingIds, setMissingIds] = useState<string[]>([]);
 

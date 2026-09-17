@@ -1,16 +1,12 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-const recipeNames: Record<string, string> = {
-  "1": "Pasta al pomodoro",
-  "2": "Insalata di pollo",
-  "3": "Riso con verdure",
-};
+import { recipes } from "@/data/recipes";
 
 export default function IngredientCheckScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const recipeName = recipeNames[id] ?? "Ricetta";
+  const recipe = recipes[id];
 
   function handleYes() {
     router.push({
@@ -30,7 +26,7 @@ export default function IngredientCheckScreen() {
     <View style={styles.container}>
       <Text style={styles.logo}>Savr</Text>
 
-      <Text style={styles.recipe}>{recipeName}</Text>
+      <Text style={styles.recipe}>{recipe?.name ?? "Ricetta"}</Text>
 
       <Text style={styles.title}>Hai già tutti gli ingredienti?</Text>
 

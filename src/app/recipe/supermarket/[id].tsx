@@ -2,26 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-const supermarkets = [
-  {
-    id: "mercadona",
-    name: "Mercadona",
-    address: "Punto vendita più vicino",
-    distance: "800 m",
-  },
-  {
-    id: "dia",
-    name: "DIA",
-    address: "Punto vendita nelle vicinanze",
-    distance: "1,2 km",
-  },
-  {
-    id: "alcampo",
-    name: "Alcampo",
-    address: "Punto vendita nelle vicinanze",
-    distance: "2,4 km",
-  },
-];
+import { supermarkets } from "@/data/supermarkets";
 
 export default function SupermarketScreen() {
   const { id, missing } = useLocalSearchParams<{

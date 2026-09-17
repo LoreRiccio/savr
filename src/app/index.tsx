@@ -1,26 +1,7 @@
 import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-const recipes = [
-  {
-    id: 1,
-    emoji: "🍝",
-    name: "Pasta al pomodoro",
-    time: "20 minuti",
-  },
-  {
-    id: 2,
-    emoji: "🥗",
-    name: "Insalata di pollo",
-    time: "25 minuti",
-  },
-  {
-    id: 3,
-    emoji: "🍚",
-    name: "Riso con verdure",
-    time: "30 minuti",
-  },
-];
+import { recipeList } from "@/data/recipes";
 
 export default function HomeScreen() {
   return (
@@ -34,7 +15,7 @@ export default function HomeScreen() {
       </Text>
 
       <View style={styles.recipeList}>
-        {recipes.map((recipe) => (
+        {recipeList.map((recipe) => (
           <Pressable
             key={recipe.id}
             style={({ pressed }) => [
