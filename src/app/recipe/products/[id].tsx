@@ -192,15 +192,31 @@ export default function ProductsScreen() {
   }
 
   function continueShopping() {
-    if (selectedProduct) {
-      selectProduct(selectedProduct);
-    }
+    const updatedSelection = selectedProduct
+      ? {
+          ...selectedProducts,
+          [currentIngredientId]: selectedProduct.storeProductId,
+        }
+      : selectedProducts;
+
+    setSelectedProducts(updatedSelection);
 
     if (isLastIngredient) {
+      const selectedStoreProductIds = missingIds
+        .map((ingredientId) => updatedSelection[ingredientId])
+        .filter((storeProductId): storeProductId is string =>
+          Boolean(storeProductId),
+        );
+
       router.push({
-        pathname: "/recipe/cook/[id]",
-        params: { id },
+        pathname: "/recipe/summary/[id]",
+        params: {
+          id,
+          supermarket: supermarketId,
+          selected: selectedStoreProductIds.join(","),
+        },
       });
+
       return;
     }
 
@@ -323,9 +339,7 @@ export default function ProductsScreen() {
 
       <Pressable style={styles.continueButton} onPress={continueShopping}>
         <Text style={styles.continueButtonText}>
-          {isLastIngredient
-            ? "Ho tutto, iniziamo a cucinare"
-            : "Prodotto successivo"}
+          {isLastIngredient ? "Vai al riepilogo" : "Prodotto successivo"}
         </Text>
       </Pressable>
 
