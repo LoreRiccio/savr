@@ -1,16 +1,21 @@
+import * as Location from "expo-location";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 import { getSession, updateSession } from "@/services/session";
-import { getSupermarkets, type Supermarket } from "@/services/supermarkets";
+import {
+  getCatalogSupermarketId,
+  getNearbySupermarkets,
+  type Supermarket,
+} from "@/services/supermarkets";
 
 export default function SupermarketScreen() {
   const { id, missing } = useLocalSearchParams<{
@@ -27,24 +32,41 @@ export default function SupermarketScreen() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
 
   const missingIngredientIds = missing
     ? missing.split(",").filter(Boolean)
     : [];
 
   useEffect(() => {
-    async function loadSupermarkets() {
+    async function loadNearbySupermarkets() {
       try {
-        const [databaseSupermarkets, savedSession] = await Promise.all([
-          getSupermarkets(),
-          getSession(),
-        ]);
+        setIsLoading(true);
+        setErrorMessage(null);
 
-        setSupermarkets(databaseSupermarkets);
+        const permission = await Location.requestForegroundPermissionsAsync();
 
-        const savedSupermarketExists = databaseSupermarkets.some(
-          (currentSupermarket) =>
-            currentSupermarket.id === savedSession.supermarketId,
+        if (permission.status !== "granted") {
+          throw new Error(
+            "Per mostrarti i supermercati vicini, Savr ha bisogno del permesso di usare la posizione.",
+          );
+        }
+
+        const currentPosition = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        const nearbySupermarkets = await getNearbySupermarkets(
+          currentPosition.coords.latitude,
+          currentPosition.coords.longitude,
+        );
+
+        setSupermarkets(nearbySupermarkets);
+
+        const savedSession = await getSession();
+
+        const savedSupermarketExists = nearbySupermarkets.some(
+          (supermarket) => supermarket.id === savedSession.supermarketId,
         );
 
         if (savedSession.recipeId === id && savedSupermarketExists) {
@@ -52,7 +74,9 @@ export default function SupermarketScreen() {
         }
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Errore sconosciuto";
+          error instanceof Error
+            ? error.message
+            : "Impossibile cercare i supermercati vicini.";
 
         setErrorMessage(message);
       } finally {
@@ -60,7 +84,7 @@ export default function SupermarketScreen() {
       }
     }
 
-    loadSupermarkets();
+    loadNearbySupermarkets();
   }, [id]);
 
   async function continueToProducts() {
@@ -69,10 +93,32 @@ export default function SupermarketScreen() {
     }
 
     try {
+      setSelectionError(null);
+
+      const realSupermarket = supermarkets.find(
+        (supermarket) => supermarket.id === selectedSupermarket,
+      );
+
+      if (!realSupermarket) {
+        throw new Error("Il supermercato selezionato non è più disponibile.");
+      }
+
+      const catalogSupermarketId = await getCatalogSupermarketId(
+        realSupermarket.chain,
+        realSupermarket.name,
+      );
+
+      if (!catalogSupermarketId) {
+        setSelectionError(
+          `Il catalogo di ${realSupermarket.chain} non è ancora disponibile. Per ora scegli Alcampo, DIA oppure Mercadona.`,
+        );
+        return;
+      }
+
       await updateSession({
         recipeId: id,
         missingIngredientIds,
-        supermarketId: selectedSupermarket,
+        supermarketId: catalogSupermarketId,
         selectedProducts: {},
         currentCookingStep: 0,
       });
@@ -82,7 +128,7 @@ export default function SupermarketScreen() {
         params: {
           id,
           missing,
-          supermarket: selectedSupermarket,
+          supermarket: catalogSupermarketId,
         },
       });
     } catch (error) {
@@ -91,10 +137,9 @@ export default function SupermarketScreen() {
           ? error.message
           : "Impossibile salvare il supermercato.";
 
-      setErrorMessage(message);
+      setSelectionError(message);
     }
   }
-
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -140,7 +185,10 @@ export default function SupermarketScreen() {
                 styles.supermarketCard,
                 isSelected && styles.selectedCard,
               ]}
-              onPress={() => setSelectedSupermarket(supermarket.id)}
+              onPress={() => {
+                setSelectedSupermarket(supermarket.id);
+                setSelectionError(null);
+              }}
             >
               <View style={styles.supermarketInformation}>
                 <Text style={styles.chain}>{supermarket.chain}</Text>
@@ -148,6 +196,14 @@ export default function SupermarketScreen() {
                 <Text style={styles.supermarketName}>{supermarket.name}</Text>
 
                 <Text style={styles.address}>{supermarket.address}</Text>
+
+                {supermarket.distanceMeters !== undefined && (
+                  <Text style={styles.distance}>
+                    {supermarket.distanceMeters < 1000
+                      ? `${supermarket.distanceMeters} m`
+                      : `${(supermarket.distanceMeters / 1000).toFixed(1)} km`}
+                  </Text>
+                )}
               </View>
 
               <View style={[styles.radio, isSelected && styles.selectedRadio]}>
@@ -161,6 +217,8 @@ export default function SupermarketScreen() {
       {supermarkets.length === 0 && (
         <Text style={styles.statusText}>Nessun supermercato disponibile.</Text>
       )}
+
+      {selectionError && <Text style={styles.errorText}>{selectionError}</Text>}
 
       <Pressable
         disabled={!selectedSupermarket}
@@ -262,6 +320,13 @@ const styles = StyleSheet.create({
   address: {
     color: "#777777",
     fontSize: 14,
+    marginTop: 5,
+  },
+
+  distance: {
+    color: "#EA5B36",
+    fontSize: 13,
+    fontWeight: "600",
     marginTop: 5,
   },
 

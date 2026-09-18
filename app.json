@@ -33,7 +33,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-image"
+      "expo-image",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Consenti a Savr di usare la tua posizione per mostrarti i supermercati vicini."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
