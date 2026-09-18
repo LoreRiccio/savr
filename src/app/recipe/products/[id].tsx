@@ -1,23 +1,62 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 import {
-    getProductsForIngredient,
-    type NutritionValues,
-    type StoreProductOption,
+  getProductsForIngredient,
+  type NutritionValues,
+  type StoreProductOption,
 } from "@/services/products";
 import { getRecipeById, type RecipeDetails } from "@/services/recipes";
 import { getSession, updateSession } from "@/services/session";
 import { getSupermarketById, type Supermarket } from "@/services/supermarkets";
+import { Image } from "expo-image";
+
+function getIngredientImage(ingredientName?: string) {
+  const name = ingredientName?.trim().toLowerCase() ?? "";
+
+  switch (name) {
+    case "insalata":
+      return require("../../../../assets/images/ingredients-optimized/insalata.webp");
+
+    case "olio extravergine":
+      return require("../../../../assets/images/ingredients-optimized/olio-extravergine.webp");
+
+    case "passata di pomodoro":
+      return require("../../../../assets/images/ingredients-optimized/passata-pomodoro.webp");
+
+    case "pasta":
+      return require("../../../../assets/images/ingredients-optimized/pasta.webp");
+
+    case "peperone":
+      return require("../../../../assets/images/ingredients-optimized/peperone.webp");
+
+    case "petto di pollo":
+      return require("../../../../assets/images/ingredients-optimized/petto-pollo.webp");
+
+    case "pomodorini":
+      return require("../../../../assets/images/ingredients-optimized/pomodorini.webp");
+
+    case "riso":
+      return require("../../../../assets/images/ingredients-optimized/riso.webp");
+
+    case "sale":
+      return require("../../../../assets/images/ingredients-optimized/sale.webp");
+
+    case "zucchine":
+      return require("../../../../assets/images/ingredients-optimized/zucchine.webp");
+
+    default:
+      return null;
+  }
+}
 
 function formatPrice(price: number | null, currency: string) {
   if (price === null) {
@@ -197,6 +236,7 @@ export default function ProductsScreen() {
     ) ?? availableProducts[0];
 
   const isLastIngredient = currentIndex === missingIds.length - 1;
+  const ingredientImage = getIngredientImage(currentIngredient?.name);
 
   function selectProduct(product: StoreProductOption) {
     setSelectedProducts((currentSelection) => ({
@@ -283,20 +323,25 @@ export default function ProductsScreen() {
           )}
 
           <View style={styles.productImage}>
-            {selectedProduct.imageUrl ? (
+            {ingredientImage ? (
               <Image
-                source={{
-                  uri: selectedProduct.imageUrl,
-                }}
+                source={ingredientImage}
                 style={styles.image}
-                resizeMode="contain"
-                accessibilityLabel={selectedProduct.name}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={150}
+                enforceEarlyResizing
+                accessibilityLabel={`Immagine illustrativa di ${currentIngredient?.name}`}
               />
             ) : (
               <Text style={styles.placeholderEmoji}>🛒</Text>
             )}
           </View>
-
+          {ingredientImage && (
+            <Text style={styles.imageDisclaimer}>
+              Immagine illustrativa generata con AI
+            </Text>
+          )}
           <Text style={styles.brand}>{selectedProduct.brand}</Text>
 
           <Text style={styles.productName}>{selectedProduct.name}</Text>
@@ -451,6 +496,13 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: "100%",
+  },
+
+  imageDisclaimer: {
+    color: "#888888",
+    fontSize: 11,
+    marginTop: 6,
+    textAlign: "center",
   },
 
   placeholderEmoji: {
