@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { getRecipeById, type RecipeDetails } from "@/services/recipes";
+import { getSession, updateSession } from "@/services/session";
 
 export default function MissingIngredientsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,7 +32,10 @@ export default function MissingIngredientsScreen() {
       }
 
       try {
-        const databaseRecipe = await getRecipeById(id);
+        const [databaseRecipe, savedSession] = await Promise.all([
+          getRecipeById(id),
+          getSession(),
+        ]);
 
         if (!databaseRecipe) {
           setErrorMessage("Ricetta non trovata.");
@@ -39,6 +43,9 @@ export default function MissingIngredientsScreen() {
         }
 
         setRecipe(databaseRecipe);
+        if (savedSession.recipeId === id) {
+          setMissingIds(savedSession.missingIngredientIds);
+        }
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Errore sconosciuto";
@@ -64,18 +71,35 @@ export default function MissingIngredientsScreen() {
     });
   }
 
-  function continueToSupermarket() {
+  async function continueToSupermarket() {
     if (missingIds.length === 0) {
       return;
     }
 
-    router.push({
-      pathname: "/recipe/supermarket/[id]",
-      params: {
-        id,
-        missing: missingIds.join(","),
-      },
-    });
+    try {
+      await updateSession({
+        recipeId: id,
+        missingIngredientIds: missingIds,
+        supermarketId: null,
+        selectedProducts: {},
+        currentCookingStep: 0,
+      });
+
+      router.push({
+        pathname: "/recipe/supermarket/[id]",
+        params: {
+          id,
+          missing: missingIds.join(","),
+        },
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Impossibile salvare gli ingredienti.";
+
+      setErrorMessage(message);
+    }
   }
 
   if (isLoading) {

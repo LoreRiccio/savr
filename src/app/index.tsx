@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { getRecipes, type RecipeListItem } from "@/services/recipes";
+import { getSession, startSession, type SavrSession } from "@/services/session";
 
 export default function HomeScreen() {
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
@@ -18,6 +19,7 @@ export default function HomeScreen() {
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [activeSession, setActiveSession] = useState<SavrSession | null>(null);
   async function loadRecipes() {
     setIsLoading(true);
     setErrorMessage(null);
@@ -38,11 +40,15 @@ export default function HomeScreen() {
   useEffect(() => {
     let isActive = true;
 
-    getRecipes()
-      .then((databaseRecipes) => {
-        if (isActive) {
-          setRecipes(databaseRecipes);
+    Promise.all([getRecipes(), getSession()])
+      .then(([databaseRecipes, savedSession]) => {
+        if (!isActive) {
+          return;
         }
+
+        setRecipes(databaseRecipes);
+
+        setActiveSession(savedSession.recipeId ? savedSession : null);
       })
       .catch((error: unknown) => {
         if (!isActive) {
@@ -65,6 +71,84 @@ export default function HomeScreen() {
     };
   }, []);
 
+  async function selectRecipe(recipeId: string) {
+    try {
+      const newSession = await startSession(recipeId);
+
+      setActiveSession(newSession);
+
+      router.push({
+        pathname: "/recipe/[id]",
+        params: { id: recipeId },
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Impossibile salvare la sessione.";
+
+      setErrorMessage(message);
+    }
+  }
+  function resumeSession() {
+    if (!activeSession?.recipeId) {
+      return;
+    }
+
+    const recipeId = activeSession.recipeId;
+    const missing = activeSession.missingIngredientIds.join(",");
+
+    const selected = Object.values(activeSession.selectedProducts).join(",");
+
+    if (activeSession.currentCookingStep > 0) {
+      router.push({
+        pathname: "/recipe/cook/[id]",
+        params: { id: recipeId },
+      });
+      return;
+    }
+
+    if (selected && activeSession.supermarketId) {
+      router.push({
+        pathname: "/recipe/summary/[id]",
+        params: {
+          id: recipeId,
+          supermarket: activeSession.supermarketId,
+          selected,
+        },
+      });
+      return;
+    }
+
+    if (activeSession.supermarketId && missing) {
+      router.push({
+        pathname: "/recipe/products/[id]",
+        params: {
+          id: recipeId,
+          missing,
+          supermarket: activeSession.supermarketId,
+        },
+      });
+      return;
+    }
+
+    if (missing) {
+      router.push({
+        pathname: "/recipe/supermarket/[id]",
+        params: {
+          id: recipeId,
+          missing,
+        },
+      });
+      return;
+    }
+
+    router.push({
+      pathname: "/recipe/[id]",
+      params: { id: recipeId },
+    });
+  }
+
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.container}>
       <Text style={styles.logo}>Savr</Text>
@@ -74,6 +158,16 @@ export default function HomeScreen() {
       <Text style={styles.subtitle}>
         Scegli un piatto e ti accompagnerò dalla spesa alla cucina.
       </Text>
+
+      {activeSession?.recipeId && (
+        <Pressable style={styles.resumeButton} onPress={resumeSession}>
+          <Text style={styles.resumeButtonTitle}>Riprendi la sessione</Text>
+
+          <Text style={styles.resumeButtonSubtitle}>
+            Continua da dove avevi interrotto
+          </Text>
+        </Pressable>
+      )}
 
       {isLoading && (
         <View style={styles.statusContainer}>
@@ -107,12 +201,7 @@ export default function HomeScreen() {
                 styles.card,
                 pressed && styles.cardPressed,
               ]}
-              onPress={() =>
-                router.push({
-                  pathname: "/recipe/[id]",
-                  params: { id: recipe.id },
-                })
-              }
+              onPress={() => selectRecipe(recipe.id)}
             >
               <Text style={styles.emoji}>{recipe.emoji ?? "🍽️"}</Text>
 
@@ -191,6 +280,25 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: "#FFFFFF",
     fontWeight: "600",
+  },
+
+  resumeButton: {
+    backgroundColor: "#171717",
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 24,
+  },
+
+  resumeButtonTitle: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "700",
+  },
+
+  resumeButtonSubtitle: {
+    color: "#CCCCCC",
+    fontSize: 13,
+    marginTop: 5,
   },
 
   recipeList: {

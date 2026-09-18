@@ -16,6 +16,7 @@ import {
     type StoreProductOption,
 } from "@/services/products";
 import { getRecipeById, type RecipeDetails } from "@/services/recipes";
+import { getSession, updateSession } from "@/services/session";
 import { getSupermarketById, type Supermarket } from "@/services/supermarkets";
 
 function formatPrice(price: number | null, currency: string) {
@@ -99,16 +100,23 @@ export default function ProductsScreen() {
       }
 
       try {
-        const [databaseRecipe, databaseSupermarket, productLists] =
-          await Promise.all([
-            getRecipeById(id),
-            getSupermarketById(supermarketId),
-            Promise.all(
-              missingIds.map((ingredientId) =>
-                getProductsForIngredient(ingredientId, supermarketId),
-              ),
+        const [
+          databaseRecipe,
+          databaseSupermarket,
+          productLists,
+          savedSession,
+        ] = await Promise.all([
+          getRecipeById(id),
+          getSupermarketById(supermarketId),
+
+          Promise.all(
+            missingIds.map((ingredientId) =>
+              getProductsForIngredient(ingredientId, supermarketId),
             ),
-          ]);
+          ),
+
+          getSession(),
+        ]);
 
         if (!databaseRecipe) {
           setErrorMessage("Ricetta non trovata.");
@@ -130,6 +138,12 @@ export default function ProductsScreen() {
         setRecipe(databaseRecipe);
         setSupermarket(databaseSupermarket);
         setProductsByIngredient(productMap);
+        if (
+          savedSession.recipeId === id &&
+          savedSession.supermarketId === supermarketId
+        ) {
+          setSelectedProducts(savedSession.selectedProducts);
+        }
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Errore sconosciuto";
@@ -191,7 +205,7 @@ export default function ProductsScreen() {
     }));
   }
 
-  function continueShopping() {
+  async function continueShopping() {
     const updatedSelection = selectedProduct
       ? {
           ...selectedProducts,
@@ -200,6 +214,23 @@ export default function ProductsScreen() {
       : selectedProducts;
 
     setSelectedProducts(updatedSelection);
+    try {
+      await updateSession({
+        recipeId: id,
+        missingIngredientIds: missingIds,
+        supermarketId,
+        selectedProducts: updatedSelection,
+        currentCookingStep: 0,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Impossibile salvare i prodotti.";
+
+      setErrorMessage(message);
+      return;
+    }
 
     if (isLastIngredient) {
       const selectedStoreProductIds = missingIds

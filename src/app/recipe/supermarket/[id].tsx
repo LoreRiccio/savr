@@ -9,6 +9,7 @@ import {
     View,
 } from "react-native";
 
+import { getSession, updateSession } from "@/services/session";
 import { getSupermarkets, type Supermarket } from "@/services/supermarkets";
 
 export default function SupermarketScreen() {
@@ -34,9 +35,21 @@ export default function SupermarketScreen() {
   useEffect(() => {
     async function loadSupermarkets() {
       try {
-        const databaseSupermarkets = await getSupermarkets();
+        const [databaseSupermarkets, savedSession] = await Promise.all([
+          getSupermarkets(),
+          getSession(),
+        ]);
 
         setSupermarkets(databaseSupermarkets);
+
+        const savedSupermarketExists = databaseSupermarkets.some(
+          (currentSupermarket) =>
+            currentSupermarket.id === savedSession.supermarketId,
+        );
+
+        if (savedSession.recipeId === id && savedSupermarketExists) {
+          setSelectedSupermarket(savedSession.supermarketId);
+        }
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Errore sconosciuto";
@@ -48,21 +61,38 @@ export default function SupermarketScreen() {
     }
 
     loadSupermarkets();
-  }, []);
+  }, [id]);
 
-  function continueToProducts() {
+  async function continueToProducts() {
     if (!selectedSupermarket) {
       return;
     }
 
-    router.push({
-      pathname: "/recipe/products/[id]",
-      params: {
-        id,
-        missing,
-        supermarket: selectedSupermarket,
-      },
-    });
+    try {
+      await updateSession({
+        recipeId: id,
+        missingIngredientIds,
+        supermarketId: selectedSupermarket,
+        selectedProducts: {},
+        currentCookingStep: 0,
+      });
+
+      router.push({
+        pathname: "/recipe/products/[id]",
+        params: {
+          id,
+          missing,
+          supermarket: selectedSupermarket,
+        },
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Impossibile salvare il supermercato.";
+
+      setErrorMessage(message);
+    }
   }
 
   if (isLoading) {

@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { getRecipeById, type RecipeDetails } from "@/services/recipes";
+import { clearSession, getSession, updateSession } from "@/services/session";
 
 export default function CookingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,7 +30,10 @@ export default function CookingScreen() {
       }
 
       try {
-        const databaseRecipe = await getRecipeById(id);
+        const [databaseRecipe, savedSession] = await Promise.all([
+          getRecipeById(id),
+          getSession(),
+        ]);
 
         if (!databaseRecipe) {
           setErrorMessage("Ricetta non trovata.");
@@ -42,7 +46,13 @@ export default function CookingScreen() {
         }
 
         setRecipe(databaseRecipe);
-        setCurrentStep(0);
+
+        const savedStepIsValid =
+          savedSession.recipeId === id &&
+          savedSession.currentCookingStep >= 0 &&
+          savedSession.currentCookingStep < databaseRecipe.steps.length;
+
+        setCurrentStep(savedStepIsValid ? savedSession.currentCookingStep : 0);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Errore sconosciuto";
@@ -84,22 +94,55 @@ export default function CookingScreen() {
 
   const step = recipe.steps[currentStep];
 
-  function goForward() {
-    if (isLastStep) {
-      router.replace("/");
-      return;
-    }
+  async function goForward() {
+    try {
+      if (isLastStep) {
+        await clearSession();
+        router.replace("/");
+        return;
+      }
 
-    setCurrentStep((previousStep) => previousStep + 1);
+      const nextStep = currentStep + 1;
+
+      await updateSession({
+        recipeId: id,
+        currentCookingStep: nextStep,
+      });
+
+      setCurrentStep(nextStep);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Impossibile salvare il passaggio.";
+
+      setErrorMessage(message);
+    }
   }
 
-  function goBack() {
+  async function goBack() {
     if (currentStep === 0) {
       router.back();
       return;
     }
 
-    setCurrentStep((previousStep) => previousStep - 1);
+    try {
+      const previousStep = currentStep - 1;
+
+      await updateSession({
+        recipeId: id,
+        currentCookingStep: previousStep,
+      });
+
+      setCurrentStep(previousStep);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Impossibile salvare il passaggio.";
+
+      setErrorMessage(message);
+    }
   }
 
   return (
