@@ -53,6 +53,18 @@ function getIngredientImage(ingredientName?: string) {
     case "zucchine":
       return require("../../../../assets/images/ingredients-optimized/zucchine.webp");
 
+    case "uova":
+      return require("../../../../assets/images/ingredients-optimized/uova.webp");
+
+    case "guanciale":
+      return require("../../../../assets/images/ingredients-optimized/guanciale.webp");
+
+    case "pecorino romano":
+      return require("../../../../assets/images/ingredients-optimized/pecorino-romano.webp");
+
+    case "pepe nero":
+      return require("../../../../assets/images/ingredients-optimized/pepe-nero.webp");
+
     default:
       return null;
   }
