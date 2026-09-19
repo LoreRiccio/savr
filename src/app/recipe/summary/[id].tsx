@@ -188,7 +188,9 @@ export default function ShoppingSummaryScreen() {
                     accessibilityLabel={product.name}
                   />
                 ) : (
-                  <Text style={styles.placeholder}>🛒</Text>
+                  <Text style={styles.placeholder}>
+                    {(product.brand || product.name).charAt(0).toUpperCase()}
+                  </Text>
                 )}
               </View>
 
@@ -338,7 +340,9 @@ const styles = StyleSheet.create({
   },
 
   placeholder: {
-    fontSize: 28,
+    color: "#EA5B36",
+    fontSize: 24,
+    fontWeight: "800",
   },
 
   productInformation: {

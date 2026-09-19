@@ -8,6 +8,7 @@ export type Supermarket = {
   latitude: number | null;
   longitude: number | null;
   distanceMeters?: number;
+  catalogSupermarketId?: string | null;
 };
 
 type OverpassElement = {
@@ -24,6 +25,12 @@ type OverpassElement = {
 
 type OverpassResponse = {
   elements: OverpassElement[];
+};
+
+type CatalogSupermarket = {
+  id: string;
+  chain: string;
+  name: string;
 };
 
 export async function getSupermarkets(): Promise<Supermarket[]> {
@@ -123,6 +130,43 @@ export async function getNearbySupermarkets(
     .slice(0, 20);
 }
 
+export async function addCatalogAvailability(
+  supermarkets: Supermarket[],
+): Promise<Supermarket[]> {
+  const { data, error } = await supabase
+    .from("supermarkets")
+    .select("id, chain, name");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const catalogSupermarkets = (data ?? []) as CatalogSupermarket[];
+
+  return supermarkets
+    .map((supermarket) => ({
+      ...supermarket,
+      catalogSupermarketId: findCatalogSupermarketId(
+        catalogSupermarkets,
+        supermarket.chain,
+        supermarket.name,
+      ),
+    }))
+    .sort((first, second) => {
+      const firstAvailabilityRank = first.catalogSupermarketId ? 0 : 1;
+      const secondAvailabilityRank = second.catalogSupermarketId ? 0 : 1;
+
+      if (firstAvailabilityRank !== secondAvailabilityRank) {
+        return firstAvailabilityRank - secondAvailabilityRank;
+      }
+
+      return (
+        (first.distanceMeters ?? Number.MAX_VALUE) -
+        (second.distanceMeters ?? Number.MAX_VALUE)
+      );
+    });
+}
+
 export async function getSupermarketById(
   supermarketId: string,
 ): Promise<Supermarket | null> {
@@ -183,9 +227,21 @@ export async function getCatalogSupermarketId(
     throw new Error(error.message);
   }
 
+  return findCatalogSupermarketId(
+    (data ?? []) as CatalogSupermarket[],
+    chain,
+    name,
+  );
+}
+
+function findCatalogSupermarketId(
+  catalogSupermarkets: CatalogSupermarket[],
+  chain: string,
+  name: string,
+): string | null {
   const selectedStoreName = normalizeStoreName(`${chain} ${name}`);
 
-  const matchingSupermarket = (data ?? []).find((supermarket) => {
+  const matchingSupermarket = catalogSupermarkets.find((supermarket) => {
     const databaseChain = normalizeStoreName(supermarket.chain);
 
     return (

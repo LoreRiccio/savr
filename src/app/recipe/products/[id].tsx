@@ -435,7 +435,22 @@ export default function ProductsScreen() {
                       style={styles.alternativeCard}
                       onPress={() => selectProduct(product)}
                     >
-                      <Text style={styles.alternativeEmoji}>🛒</Text>
+                      <View style={styles.alternativeImageContainer}>
+                        {product.imageUrl || ingredientImage ? (
+                          <Image
+                            source={
+                              product.imageUrl
+                                ? { uri: product.imageUrl }
+                                : ingredientImage
+                            }
+                            style={styles.alternativeImage}
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                          />
+                        ) : (
+                          <Text style={styles.alternativeEmoji}>🛒</Text>
+                        )}
+                      </View>
 
                       <Text style={styles.alternativeBrand} numberOfLines={2}>
                         {product.brand}
@@ -620,6 +635,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 15,
     padding: 14,
+  },
+
+  alternativeImageContainer: {
+    width: "100%",
+    height: 82,
+    borderRadius: 10,
+    backgroundColor: "#FFF8EE",
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  alternativeImage: {
+    width: "100%",
+    height: "100%",
   },
 
   alternativeEmoji: {

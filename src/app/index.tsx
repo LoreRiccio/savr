@@ -381,7 +381,7 @@ export default function HomeScreen() {
                   </View>
 
                   <View style={styles.cardContent}>
-                    <Text style={styles.recipeName} numberOfLines={2}>
+                    <Text style={styles.recipeName} numberOfLines={3}>
                       {recipe.name}
                     </Text>
 
@@ -473,19 +473,19 @@ const styles = StyleSheet.create({
   },
 
   categoryList: {
-    gap: 10,
-    paddingTop: 26,
-    paddingBottom: 10,
+    gap: 8,
+    paddingTop: 22,
+    paddingBottom: 6,
   },
 
   categoryButton: {
-    minHeight: 42,
+    minHeight: 38,
     justifyContent: "center",
     backgroundColor: "#FFFFFF",
     borderColor: "#E7DDD4",
     borderWidth: 1,
-    borderRadius: 22,
-    paddingHorizontal: 16,
+    borderRadius: 19,
+    paddingHorizontal: 13,
   },
 
   selectedCategoryButton: {
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
 
   categoryText: {
     color: "#444444",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
   },
 
