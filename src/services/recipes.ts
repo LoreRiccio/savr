@@ -6,11 +6,21 @@ export type RecipeListItem = {
   emoji: string | null;
   preparationMinutes: number;
   servings: number;
+  category: string;
+  imageUrl: string | null;
+  caloriesKcal: number | null;
+  proteinG: number | null;
+  carbohydratesG: number | null;
+  fatG: number | null;
+  isLight: boolean;
+  variantOfRecipeId: string | null;
 };
 
 export type RecipeIngredient = {
   id: string;
   name: string;
+  quantity: number | null;
+  unit: string | null;
   displayQuantity: string;
   position: number;
 };
@@ -28,6 +38,16 @@ export type RecipeDetails = RecipeListItem & {
   steps: RecipeStep[];
 };
 
+function numberOrNull(value: number | string | null): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  const convertedValue = Number(value);
+
+  return Number.isNaN(convertedValue) ? null : convertedValue;
+}
+
 export async function getRecipes(): Promise<RecipeListItem[]> {
   const { data, error } = await supabase
     .from("recipes")
@@ -37,7 +57,15 @@ export async function getRecipes(): Promise<RecipeListItem[]> {
         name,
         emoji,
         preparation_minutes,
-        servings
+        servings,
+        category,
+        image_url,
+        calories_kcal,
+        protein_g,
+        carbohydrates_g,
+        fat_g,
+        is_light,
+        variant_of_recipe_id
       `,
     )
     .order("name");
@@ -52,6 +80,14 @@ export async function getRecipes(): Promise<RecipeListItem[]> {
     emoji: recipe.emoji,
     preparationMinutes: recipe.preparation_minutes,
     servings: recipe.servings,
+    category: recipe.category,
+    imageUrl: recipe.image_url,
+    caloriesKcal: numberOrNull(recipe.calories_kcal),
+    proteinG: numberOrNull(recipe.protein_g),
+    carbohydratesG: numberOrNull(recipe.carbohydrates_g),
+    fatG: numberOrNull(recipe.fat_g),
+    isLight: recipe.is_light,
+    variantOfRecipeId: recipe.variant_of_recipe_id,
   }));
 }
 
@@ -67,7 +103,15 @@ export async function getRecipeById(
           name,
           emoji,
           preparation_minutes,
-          servings
+          servings,
+          category,
+          image_url,
+          calories_kcal,
+          protein_g,
+          carbohydrates_g,
+          fat_g,
+          is_light,
+          variant_of_recipe_id
         `,
       )
       .eq("id", recipeId)
@@ -77,6 +121,8 @@ export async function getRecipeById(
       .from("recipe_ingredients")
       .select(
         `
+          quantity,
+          unit,
           display_quantity,
           position,
           ingredient:ingredients (
@@ -134,6 +180,8 @@ export async function getRecipeById(
       {
         id: ingredient.id,
         name: ingredient.name,
+        quantity: numberOrNull(row.quantity),
+        unit: row.unit,
         displayQuantity: row.display_quantity,
         position: row.position,
       },
@@ -154,6 +202,14 @@ export async function getRecipeById(
     emoji: recipeResult.data.emoji,
     preparationMinutes: recipeResult.data.preparation_minutes,
     servings: recipeResult.data.servings,
+    category: recipeResult.data.category,
+    imageUrl: recipeResult.data.image_url,
+    caloriesKcal: numberOrNull(recipeResult.data.calories_kcal),
+    proteinG: numberOrNull(recipeResult.data.protein_g),
+    carbohydratesG: numberOrNull(recipeResult.data.carbohydrates_g),
+    fatG: numberOrNull(recipeResult.data.fat_g),
+    isLight: recipeResult.data.is_light,
+    variantOfRecipeId: recipeResult.data.variant_of_recipe_id,
     ingredients,
     steps,
   };

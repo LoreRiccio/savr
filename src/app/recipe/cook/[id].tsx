@@ -1,24 +1,126 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 import { getRecipeById, type RecipeDetails } from "@/services/recipes";
 import { clearSession, getSession, updateSession } from "@/services/session";
 
+function formatTimer(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+type StepTimerProps = {
+  initialSeconds: number;
+};
+
+function StepTimer({ initialSeconds }: StepTimerProps) {
+  const [remainingSeconds, setRemainingSeconds] = useState(initialSeconds);
+  const [isRunning, setIsRunning] = useState(false);
+
+  const remainingSecondsRef = useRef(initialSeconds);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
+
+  function stopInterval() {
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }
+
+  function toggleTimer() {
+    if (isRunning) {
+      stopInterval();
+      setIsRunning(false);
+      return;
+    }
+
+    if (remainingSecondsRef.current <= 0) {
+      return;
+    }
+
+    setIsRunning(true);
+
+    intervalRef.current = setInterval(() => {
+      const nextSeconds = Math.max(remainingSecondsRef.current - 1, 0);
+
+      remainingSecondsRef.current = nextSeconds;
+      setRemainingSeconds(nextSeconds);
+
+      if (nextSeconds === 0) {
+        stopInterval();
+        setIsRunning(false);
+
+        Alert.alert(
+          "Timer terminato",
+          "Il tempo previsto per questo passaggio è terminato.",
+        );
+      }
+    }, 1000);
+  }
+
+  function resetTimer() {
+    stopInterval();
+
+    remainingSecondsRef.current = initialSeconds;
+    setRemainingSeconds(initialSeconds);
+    setIsRunning(false);
+  }
+
+  return (
+    <View style={styles.timerContainer}>
+      <Text style={styles.timerLabel}>
+        {remainingSeconds === 0 ? "Tempo terminato" : "Timer"}
+      </Text>
+
+      <Text style={styles.timerValue}>{formatTimer(remainingSeconds)}</Text>
+
+      <View style={styles.timerActions}>
+        <Pressable
+          disabled={remainingSeconds === 0}
+          style={[
+            styles.timerButton,
+            remainingSeconds === 0 && styles.disabledTimerButton,
+          ]}
+          onPress={toggleTimer}
+        >
+          <Text style={styles.timerButtonText}>
+            {isRunning ? "Pausa" : "Avvia"}
+          </Text>
+        </Pressable>
+
+        <Pressable style={styles.resetButton} onPress={resetTimer}>
+          <Text style={styles.resetButtonText}>Ricomincia</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export default function CookingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [recipe, setRecipe] = useState<RecipeDetails | null>(null);
-
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -91,7 +193,6 @@ export default function CookingScreen() {
   }
 
   const isLastStep = currentStep === recipe.steps.length - 1;
-
   const step = recipe.steps[currentStep];
 
   async function goForward() {
@@ -106,6 +207,7 @@ export default function CookingScreen() {
 
       await updateSession({
         recipeId: id,
+        stage: "cooking",
         currentCookingStep: nextStep,
       });
 
@@ -131,6 +233,7 @@ export default function CookingScreen() {
 
       await updateSession({
         recipeId: id,
+        stage: "cooking",
         currentCookingStep: previousStep,
       });
 
@@ -146,7 +249,7 @@ export default function CookingScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.page} contentContainerStyle={styles.container}>
       <Text style={styles.logo}>Savr</Text>
 
       <Text style={styles.recipeName}>{recipe.name}</Text>
@@ -159,6 +262,10 @@ export default function CookingScreen() {
         <Text style={styles.stepNumber}>{currentStep + 1}</Text>
 
         <Text style={styles.instruction}>{step.instruction}</Text>
+
+        {step.timerSeconds !== null && (
+          <StepTimer key={step.id} initialSeconds={step.timerSeconds} />
+        )}
       </View>
 
       <Pressable style={styles.primaryButton} onPress={goForward}>
@@ -172,16 +279,22 @@ export default function CookingScreen() {
           {currentStep === 0 ? "Torna indietro" : "Passaggio precedente"}
         </Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  page: {
     flex: 1,
     backgroundColor: "#FFF8EE",
+  },
+
+  container: {
+    flexGrow: 1,
     justifyContent: "center",
     padding: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
   },
 
   center: {
@@ -203,6 +316,7 @@ const styles = StyleSheet.create({
   recipeName: {
     color: "#171717",
     fontSize: 28,
+    lineHeight: 34,
     fontWeight: "700",
   },
 
@@ -231,8 +345,65 @@ const styles = StyleSheet.create({
 
   instruction: {
     color: "#171717",
-    fontSize: 23,
-    lineHeight: 32,
+    fontSize: 22,
+    lineHeight: 31,
+    fontWeight: "600",
+  },
+
+  timerContainer: {
+    backgroundColor: "#FFF1EC",
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 24,
+    alignItems: "center",
+  },
+
+  timerLabel: {
+    color: "#777777",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  timerValue: {
+    color: "#171717",
+    fontSize: 40,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+
+  timerActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 14,
+  },
+
+  timerButton: {
+    backgroundColor: "#EA5B36",
+    borderRadius: 12,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+  },
+
+  disabledTimerButton: {
+    opacity: 0.45,
+  },
+
+  timerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  resetButton: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+
+  resetButtonText: {
+    color: "#555555",
+    fontSize: 15,
     fontWeight: "600",
   },
 

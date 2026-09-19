@@ -1,19 +1,21 @@
+import { updateSession } from "@/services/session";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 import {
-    getStoreProductsByIds,
-    type StoreProductOption,
+  getStoreProductsByIds,
+  type StoreProductOption,
 } from "@/services/products";
+import { getRecipeById } from "@/services/recipes";
 import { getSupermarketById, type Supermarket } from "@/services/supermarkets";
 
 function formatPrice(price: number, currency = "EUR") {
@@ -27,10 +29,12 @@ export default function ShoppingSummaryScreen() {
   const {
     id,
     selected,
+    unavailable,
     supermarket: supermarketId,
   } = useLocalSearchParams<{
     id: string;
-    selected: string;
+    selected?: string;
+    unavailable?: string;
     supermarket: string;
   }>();
 
@@ -39,35 +43,56 @@ export default function ShoppingSummaryScreen() {
     [selected],
   );
 
-  const [products, setProducts] = useState<StoreProductOption[]>([]);
+  const unavailableIngredientIds = useMemo(
+    () => (unavailable ? unavailable.split(",").filter(Boolean) : []),
+    [unavailable],
+  );
 
+  const [products, setProducts] = useState<StoreProductOption[]>([]);
   const [supermarket, setSupermarket] = useState<Supermarket | null>(null);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [unavailableIngredientNames, setUnavailableIngredientNames] = useState<
+    string[]
+  >([]);
 
+  const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadSummary() {
-      if (!supermarketId || storeProductIds.length === 0) {
-        setErrorMessage("Non sono stati selezionati prodotti.");
+      if (!id || !supermarketId) {
+        setErrorMessage("Mancano alcune informazioni per il riepilogo.");
         setIsLoading(false);
         return;
       }
 
       try {
-        const [selectedProducts, selectedSupermarket] = await Promise.all([
-          getStoreProductsByIds(storeProductIds),
-          getSupermarketById(supermarketId),
-        ]);
+        const [selectedProducts, selectedSupermarket, databaseRecipe] =
+          await Promise.all([
+            getStoreProductsByIds(storeProductIds),
+            getSupermarketById(supermarketId),
+            getRecipeById(id),
+          ]);
 
         if (!selectedSupermarket) {
           setErrorMessage("Supermercato non trovato.");
           return;
         }
 
+        if (!databaseRecipe) {
+          setErrorMessage("Ricetta non trovata.");
+          return;
+        }
+
+        const unavailableNames = databaseRecipe.ingredients
+          .filter((ingredient) =>
+            unavailableIngredientIds.includes(ingredient.id),
+          )
+          .map((ingredient) => ingredient.name);
+
         setProducts(selectedProducts);
         setSupermarket(selectedSupermarket);
+        setUnavailableIngredientNames(unavailableNames);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Errore sconosciuto";
@@ -79,7 +104,7 @@ export default function ShoppingSummaryScreen() {
     }
 
     loadSummary();
-  }, [storeProductIds, supermarketId]);
+  }, [id, storeProductIds, supermarketId, unavailableIngredientIds]);
 
   const totalPrice = products.reduce(
     (total, product) => total + (product.effectivePrice ?? 0),
@@ -88,11 +113,32 @@ export default function ShoppingSummaryScreen() {
 
   const currency = products[0]?.currency ?? "EUR";
 
-  function startCooking() {
-    router.push({
-      pathname: "/recipe/cook/[id]",
-      params: { id },
-    });
+  async function startCooking() {
+    if (!id) {
+      return;
+    }
+
+    try {
+      setErrorMessage(null);
+
+      await updateSession({
+        recipeId: id,
+        stage: "cooking",
+        currentCookingStep: 0,
+      });
+
+      router.push({
+        pathname: "/recipe/cook/[id]",
+        params: { id },
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Impossibile iniziare la preparazione.";
+
+      setErrorMessage(message);
+    }
   }
 
   if (isLoading) {
@@ -129,42 +175,73 @@ export default function ShoppingSummaryScreen() {
         {supermarket.chain} · {supermarket.name}
       </Text>
 
-      <View style={styles.list}>
-        {products.map((product) => (
-          <View key={product.storeProductId} style={styles.productCard}>
-            <View style={styles.imageContainer}>
-              {product.imageUrl ? (
-                <Image
-                  source={{ uri: product.imageUrl }}
-                  style={styles.image}
-                  resizeMode="contain"
-                  accessibilityLabel={product.name}
-                />
-              ) : (
-                <Text style={styles.placeholder}>🛒</Text>
-              )}
+      {products.length > 0 ? (
+        <View style={styles.list}>
+          {products.map((product) => (
+            <View key={product.storeProductId} style={styles.productCard}>
+              <View style={styles.imageContainer}>
+                {product.imageUrl ? (
+                  <Image
+                    source={{ uri: product.imageUrl }}
+                    style={styles.image}
+                    resizeMode="contain"
+                    accessibilityLabel={product.name}
+                  />
+                ) : (
+                  <Text style={styles.placeholder}>🛒</Text>
+                )}
+              </View>
+
+              <View style={styles.productInformation}>
+                <Text style={styles.brand}>{product.brand}</Text>
+
+                <Text style={styles.productName}>{product.name}</Text>
+
+                {product.packQuantity !== null && (
+                  <Text style={styles.pack}>
+                    {product.packQuantity} {product.packUnit}
+                  </Text>
+                )}
+
+                {product.isOnSale && (
+                  <Text style={styles.sale}>In offerta</Text>
+                )}
+              </View>
+
+              <Text style={styles.productPrice}>
+                {formatPrice(product.effectivePrice ?? 0, product.currency)}
+              </Text>
             </View>
+          ))}
+        </View>
+      ) : (
+        <View style={styles.emptyProducts}>
+          <Text style={styles.emptyProductsTitle}>
+            Nessun prodotto aggiunto
+          </Text>
 
-            <View style={styles.productInformation}>
-              <Text style={styles.brand}>{product.brand}</Text>
+          <Text style={styles.emptyProductsDescription}>
+            Nessuno degli ingredienti selezionati è ancora presente nel catalogo
+            del supermercato.
+          </Text>
+        </View>
+      )}
 
-              <Text style={styles.productName}>{product.name}</Text>
+      {unavailableIngredientNames.length > 0 && (
+        <View style={styles.unavailableContainer}>
+          <Text style={styles.unavailableTitle}>Da cercare manualmente</Text>
 
-              {product.packQuantity !== null && (
-                <Text style={styles.pack}>
-                  {product.packQuantity} {product.packUnit}
-                </Text>
-              )}
+          <Text style={styles.unavailableDescription}>
+            Questi ingredienti non sono ancora presenti nel catalogo:
+          </Text>
 
-              {product.isOnSale && <Text style={styles.sale}>In offerta</Text>}
-            </View>
-
-            <Text style={styles.productPrice}>
-              {formatPrice(product.effectivePrice ?? 0, product.currency)}
+          {unavailableIngredientNames.map((ingredientName) => (
+            <Text key={ingredientName} style={styles.unavailableIngredient}>
+              • {ingredientName}
             </Text>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      )}
 
       <View style={styles.totalContainer}>
         <Text style={styles.totalLabel}>Totale stimato</Text>
@@ -175,8 +252,9 @@ export default function ShoppingSummaryScreen() {
       </View>
 
       <Text style={styles.disclaimer}>
-        Prezzi dimostrativi. Disponibilità e totale devono essere verificati nel
-        punto vendita.
+        Prezzi dimostrativi. Il totale comprende solamente i prodotti presenti
+        nel catalogo. Disponibilità e prezzi devono essere verificati nel punto
+        vendita.
       </Text>
 
       <Pressable style={styles.primaryButton} onPress={startCooking}>
@@ -297,6 +375,55 @@ const styles = StyleSheet.create({
     color: "#000000",
     fontSize: 18,
     fontWeight: "700",
+  },
+
+  emptyProducts: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 28,
+  },
+
+  emptyProductsTitle: {
+    color: "#171717",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  emptyProductsDescription: {
+    color: "#666666",
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
+  },
+
+  unavailableContainer: {
+    backgroundColor: "#FFF1EC",
+    borderColor: "#EA5B36",
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 20,
+  },
+
+  unavailableTitle: {
+    color: "#171717",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  unavailableDescription: {
+    color: "#666666",
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
+    marginBottom: 10,
+  },
+
+  unavailableIngredient: {
+    color: "#171717",
+    fontSize: 15,
+    marginTop: 4,
   },
 
   totalContainer: {

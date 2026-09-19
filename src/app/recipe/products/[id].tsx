@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -17,7 +18,6 @@ import {
 import { getRecipeById, type RecipeDetails } from "@/services/recipes";
 import { getSession, updateSession } from "@/services/session";
 import { getSupermarketById, type Supermarket } from "@/services/supermarkets";
-import { Image } from "expo-image";
 
 function getIngredientImage(ingredientName?: string) {
   const name = ingredientName?.trim().toLowerCase() ?? "";
@@ -126,7 +126,6 @@ export default function ProductsScreen() {
   );
 
   const [recipe, setRecipe] = useState<RecipeDetails | null>(null);
-
   const [supermarket, setSupermarket] = useState<Supermarket | null>(null);
 
   const [productsByIngredient, setProductsByIngredient] = useState<
@@ -139,7 +138,6 @@ export default function ProductsScreen() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -179,21 +177,32 @@ export default function ProductsScreen() {
           return;
         }
 
-        const productMap = Object.fromEntries(
-          missingIds.map((ingredientId, index) => [
-            ingredientId,
-            productLists[index],
-          ]),
-        );
+        const productMap: Record<string, StoreProductOption[]> =
+          Object.fromEntries(
+            missingIds.map((ingredientId, index) => [
+              ingredientId,
+              productLists[index],
+            ]),
+          );
 
         setRecipe(databaseRecipe);
         setSupermarket(databaseSupermarket);
         setProductsByIngredient(productMap);
+
         if (
           savedSession.recipeId === id &&
           savedSession.supermarketId === supermarketId
         ) {
-          setSelectedProducts(savedSession.selectedProducts);
+          const validSavedSelections = Object.fromEntries(
+            Object.entries(savedSession.selectedProducts).filter(
+              ([ingredientId, storeProductId]) =>
+                (productMap[ingredientId] ?? []).some(
+                  (product) => product.storeProductId === storeProductId,
+                ),
+            ),
+          );
+
+          setSelectedProducts(validSavedSelections);
         }
       } catch (error) {
         const message =
@@ -248,6 +257,7 @@ export default function ProductsScreen() {
     ) ?? availableProducts[0];
 
   const isLastIngredient = currentIndex === missingIds.length - 1;
+
   const ingredientImage = getIngredientImage(currentIngredient?.name);
 
   function selectProduct(product: StoreProductOption) {
@@ -266,6 +276,7 @@ export default function ProductsScreen() {
       : selectedProducts;
 
     setSelectedProducts(updatedSelection);
+
     try {
       await updateSession({
         recipeId: id,
@@ -273,6 +284,7 @@ export default function ProductsScreen() {
         supermarketId,
         selectedProducts: updatedSelection,
         currentCookingStep: 0,
+        stage: isLastIngredient ? "summary" : "products",
       });
     } catch (error) {
       const message =
@@ -291,12 +303,18 @@ export default function ProductsScreen() {
           Boolean(storeProductId),
         );
 
+      const unavailableIngredientIds = missingIds.filter(
+        (ingredientId) =>
+          (productsByIngredient[ingredientId] ?? []).length === 0,
+      );
+
       router.push({
         pathname: "/recipe/summary/[id]",
         params: {
           id,
           supermarket: supermarketId,
           selected: selectedStoreProductIds.join(","),
+          unavailable: unavailableIngredientIds.join(","),
         },
       });
 
@@ -324,8 +342,13 @@ export default function ProductsScreen() {
 
       {!selectedProduct ? (
         <View style={styles.unavailableCard}>
-          <Text style={styles.errorText}>
-            Nessun prodotto disponibile per questo ingrediente.
+          <Text style={styles.unavailableTitle}>
+            Prodotto non ancora disponibile
+          </Text>
+
+          <Text style={styles.unavailableDescription}>
+            Questo ingrediente non è ancora presente nel catalogo del
+            supermercato. Potrai cercarlo manualmente.
           </Text>
         </View>
       ) : (
@@ -349,11 +372,13 @@ export default function ProductsScreen() {
               <Text style={styles.placeholderEmoji}>🛒</Text>
             )}
           </View>
+
           {ingredientImage && (
             <Text style={styles.imageDisclaimer}>
               Immagine illustrativa generata con AI
             </Text>
           )}
+
           <Text style={styles.brand}>{selectedProduct.brand}</Text>
 
           <Text style={styles.productName}>{selectedProduct.name}</Text>
@@ -388,46 +413,56 @@ export default function ProductsScreen() {
               )}
           </View>
 
-          <Text style={styles.alternativeTitle}>Altre marche disponibili</Text>
+          {availableProducts.length > 1 && (
+            <>
+              <Text style={styles.alternativeTitle}>
+                Altre marche disponibili
+              </Text>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.alternativeList}
-          >
-            {availableProducts
-              .filter(
-                (product) =>
-                  product.storeProductId !== selectedProduct.storeProductId,
-              )
-              .map((product) => (
-                <Pressable
-                  key={product.storeProductId}
-                  style={styles.alternativeCard}
-                  onPress={() => selectProduct(product)}
-                >
-                  <Text style={styles.alternativeEmoji}>🛒</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.alternativeList}
+              >
+                {availableProducts
+                  .filter(
+                    (product) =>
+                      product.storeProductId !== selectedProduct.storeProductId,
+                  )
+                  .map((product) => (
+                    <Pressable
+                      key={product.storeProductId}
+                      style={styles.alternativeCard}
+                      onPress={() => selectProduct(product)}
+                    >
+                      <Text style={styles.alternativeEmoji}>🛒</Text>
 
-                  <Text style={styles.alternativeBrand} numberOfLines={2}>
-                    {product.brand}
-                  </Text>
+                      <Text style={styles.alternativeBrand} numberOfLines={2}>
+                        {product.brand}
+                      </Text>
 
-                  <Text style={styles.alternativePrice}>
-                    {formatPrice(product.effectivePrice, product.currency)}
-                  </Text>
+                      <Text style={styles.alternativePrice}>
+                        {formatPrice(product.effectivePrice, product.currency)}
+                      </Text>
 
-                  {product.isOnSale && (
-                    <Text style={styles.smallSale}>Offerta</Text>
-                  )}
-                </Pressable>
-              ))}
-          </ScrollView>
+                      {product.isOnSale && (
+                        <Text style={styles.smallSale}>Offerta</Text>
+                      )}
+                    </Pressable>
+                  ))}
+              </ScrollView>
+            </>
+          )}
         </>
       )}
 
       <Pressable style={styles.continueButton} onPress={continueShopping}>
         <Text style={styles.continueButtonText}>
-          {isLastIngredient ? "Vai al riepilogo" : "Prodotto successivo"}
+          {isLastIngredient
+            ? "Vai al riepilogo"
+            : selectedProduct
+              ? "Prodotto successivo"
+              : "Continua senza prodotto"}
         </Text>
       </Pressable>
 
@@ -613,10 +648,25 @@ const styles = StyleSheet.create({
   },
 
   unavailableCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFF1EC",
+    borderColor: "#EA5B36",
+    borderWidth: 1,
     borderRadius: 16,
-    padding: 24,
+    padding: 20,
     marginTop: 24,
+  },
+
+  unavailableTitle: {
+    color: "#171717",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  unavailableDescription: {
+    color: "#666666",
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 7,
   },
 
   continueButton: {
@@ -624,7 +674,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 17,
     alignItems: "center",
-    marginTop: 12,
+    marginTop: 20,
   },
 
   continueButtonText: {

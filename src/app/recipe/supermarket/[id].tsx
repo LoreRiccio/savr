@@ -121,6 +121,7 @@ export default function SupermarketScreen() {
         supermarketId: catalogSupermarketId,
         selectedProducts: {},
         currentCookingStep: 0,
+        stage: "products",
       });
 
       router.push({
