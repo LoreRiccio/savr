@@ -4,6 +4,19 @@ Savr is a mobile-first cooking companion that connects recipe discovery, pantry 
 
 The project was built as a portfolio MVP to explore how a consumer app can reduce the friction between choosing what to cook and actually preparing it.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/home.png" alt="Savr recipe discovery screen" width="230" />
+  <img src="docs/screenshots/recipe-servings.png" alt="Serving and pantry selection" width="230" />
+  <img src="docs/screenshots/product-selection.png" alt="Product selection screen" width="230" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/shopping-summary.png" alt="Shopping summary screen" width="230" />
+  <img src="docs/screenshots/cooking-timer.png" alt="Guided cooking timer" width="230" />
+</p>
+
 ## What Savr does
 
 - Organizes recipes into categories such as first courses, main dishes, appetizers, desserts, and lighter meals.
@@ -161,17 +174,9 @@ They can then be uploaded to the public `recipe-images` bucket in Supabase Stora
 - Evaluate official retailer integrations or licensed product-data providers for real prices.
 - Produce an installable iOS and Android demo build.
 
-## Screenshots and demo
+## Demo
 
-Screenshots and a short product demo will be added after the final UI-polish pass.
-
-Recommended portfolio sequence:
-
-1. Home and recipe categories.
-2. Recipe details and serving selection.
-3. Pantry check and nearby supermarkets.
-4. Product selection and shopping summary.
-5. Guided cooking step with an active timer.
+A short product demo will be added after the final presentation pass.
 
 ## Project status
 
